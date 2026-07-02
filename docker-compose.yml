@@ -23,14 +23,15 @@ services:
       PYTHONUNBUFFERED: "1"
     ports:
       - "8000:8000"
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
   # Frontend (React)
+# Frontend (React)
   web:
     build: ./App
     restart: unless-stopped
     ports:
-      - "5173:5173"
+      - "5173:80"  # Ahora el puerto 5173 de la PC conecta al puerto 80 de Nginx
 
 volumes:
   postgres_data:
