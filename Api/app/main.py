@@ -9,7 +9,7 @@ app = FastAPI()
 # 1. CORS debe ir ANTES de cualquier ruta
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://app.abarretov.com", "https://quiniela.abarretov.com"], 
+    allow_origins=["http://localhost:5173", "https://app.abarretov.com", "https://quiniela.abarretov.com"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

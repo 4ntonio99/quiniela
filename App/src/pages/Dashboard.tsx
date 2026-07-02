@@ -9,21 +9,16 @@ import './user/user.scss';
 export default function Dashboard() {
   const { logout } = useAuth();
   const navigate = useNavigate();
-
   const [quinielaData, setQuinielaData] = useState<{ usuario: string; total_puntos: number; datos: Partido[] }>({ usuario: "", total_puntos: 0, datos: [] });
   const [misQuinielas, setMisQuinielas] = useState<any[]>([]);
   const [ranking, setRanking] = useState<any[]>([]);
   const [quinielaSeleccionada, setQuinielaSeleccionada] = useState<any>(null);
-  const esPartidoValido = (p: Partido) => p.equipo_local !== null && p.equipo_visitante !== null;
-  
-  const [fase, setFase] = useState('Ranking'); 
+  const [fase, setFase] = useState('Ranking');
   const [grupo, setGrupo] = useState('A');
   const [tempPreds, setTempPreds] = useState<Record<number, { local: number | null, visita: number | null }>>({});
-
-  const fases = ['Ranking', 'Todos', 'Grupos', '16avos', '8avos', '4tos', 'Semifinal', 'Final'];
-  const grupos = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
-
   
+  const fases = ['Ranking', 'Todos', 'Grupos', '16avos', '8avos', '4tos','Tercer', 'Semifinal', 'Final'];
+  const grupos = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
   const fetchQuinielas = async () => {
     try {
@@ -54,7 +49,7 @@ export default function Dashboard() {
       await api.post('/quinielas/gratis');
       alert("¡Bienvenido! Tu quiniela gratis ha sido activada.");
       fetchQuinielas();
-    } catch (error: any) { alert(error.response?.data?.detail || "Ya has solicitado tu quiniela gratuita."); }
+    } catch (error: any) { alert("Ya has solicitado tu quiniela gratuita."); }
   };
 
   const solicitarQuiniela = async (isRandom: boolean) => {
@@ -91,19 +86,26 @@ export default function Dashboard() {
   };
 
 const partidosFiltrados = quinielaData.datos.filter(p => {
-    // CAMBIO: Ya no filtramos por "esPartidoValido" de forma global.
-    // Esto permite que el componente muestre los partidos según la fase seleccionada.
-    
-    // 1. Filtro de Fases
     if (fase === 'Ranking') return false;
     if (fase === 'Todos') return true;
 
-    const pFase = p.fase.toLowerCase();
-    const filtroFase = fase.toLowerCase();
+    const faseBackend = (p.fase || "").toLowerCase().trim();
+    const filtroFase = fase.toLowerCase().trim();
 
-    // Lógica para mostrar partidos de la fase seleccionada
-    return pFase.includes(filtroFase);
+    // 1. Grupos
+    if (fase === 'Grupos') {
+        return faseBackend.includes('grupo') && p.grupo === `Grupo ${grupo}`;
+    }
+
+    // 2. Fases exactas (para evitar que "Final" incluya "Semifinal")
+    if (filtroFase === 'semifinal') return faseBackend === 'semifinal';
+    if (filtroFase === 'final') return faseBackend === 'final';
+    if (filtroFase === 'tercer lugar') return faseBackend.includes('tercer');
+
+    // 3. Otras fases (16avos, 8avos, 4tos)
+    return faseBackend.includes(filtroFase);
 });
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8 flex flex-col items-center">
       <div className="w-full max-w-4xl">
@@ -112,19 +114,14 @@ const partidosFiltrados = quinielaData.datos.filter(p => {
             <button onClick={logout} className="bg-red-600 px-4 py-2 rounded">Salir</button>
         </div>
 
-<div className="bg-gray-800 p-6 rounded-xl mb-8 border border-blue-500">
-    <h2 className="text-xl font-bold mb-4">¿Quieres jugar?</h2>
-    <div className="dashContainer">
-        {/* Solo mostramos el botón de gratis si NO hay quinielas */}
-        {misQuinielas.length === 0 && (
-            <button onClick={solicitarGratis}>¡Obtener mi Quiniela GRATIS!</button>
-        )}
-        
-        {/* Estos siempre se muestran, o puedes envolverlos también si lo deseas */}
-        <button onClick={() => solicitarQuiniela(false)}>Solicitar por Decisión</button>
-        <button onClick={() => solicitarQuiniela(true)}>Solicitar Aleatoria</button>
-    </div>
-</div>
+        <div className="bg-gray-800 p-6 rounded-xl mb-8 border border-blue-500">
+            <h2 className="text-xl font-bold mb-4">¿Quieres jugar?</h2>
+            <div className="dashContainer">
+                {misQuinielas.length === 0 && <button onClick={solicitarGratis}>¡Obtener mi Quiniela GRATIS!</button>}
+                <button onClick={() => solicitarQuiniela(false)}>Solicitar por Decisión</button>
+                <button onClick={() => solicitarQuiniela(true)}>Solicitar Aleatoria</button>
+            </div>
+        </div>
 
         <h2 className="text-xl font-bold mb-4">Mis Quinielas Aprobadas</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
@@ -139,13 +136,13 @@ const partidosFiltrados = quinielaData.datos.filter(p => {
         {quinielaSeleccionada && (
           <div className="bg-gray-800 p-6 rounded-xl">
              <div className="fase">
-               {fases.map(f => <button key={f} onClick={() => setFase(f)} className="faseBtn">{f}</button>)}
+                {fases.map(f => <button key={f} onClick={() => setFase(f)} className="faseBtn">{f}</button>)}
              </div>
 
              {fase === 'Ranking' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {['Decisión', 'Aleatoria'].map(tipo => (
-                        <div key={tipo} className="bg-gray-700 p-4 rounded-lg">
+                       <div key={tipo} className="bg-gray-700 p-4 rounded-lg">
                             <h3 className="font-bold mb-3 border-b border-gray-600">{tipo}</h3>
                             {ranking.filter(r => (tipo === 'Aleatoria' ? r.is_random : !r.is_random))
                                .sort((a, b) => b.puntos - a.puntos)
@@ -154,7 +151,7 @@ const partidosFiltrados = quinielaData.datos.filter(p => {
                                     <span>{i + 1}. {r.username}</span>
                                     <span className="font-bold text-yellow-400">{r.puntos} pts</span>
                                  </div>
-                            ))}
+                               ))}
                         </div>
                     ))}
                 </div>
@@ -165,40 +162,46 @@ const partidosFiltrados = quinielaData.datos.filter(p => {
                             {grupos.map(g => <button key={g} onClick={() => setGrupo(g)} className={`px-2 py-1 text-sm rounded ${grupo === g ? 'bg-green-600' : 'bg-gray-700'}`}>Grupo {g}</button>)}
                         </div>
                     )}
-                    <table className="w-full text-center border-collapse">
-                        <tbody>
-                            {partidosFiltrados.map((p) => (
-<tr key={p.id} className="border-b border-gray-700">
-    {/* AQUÍ ES DONDE REEMPLAZAS LAS CELDAS */}
-    <td className="p-2">{p.equipo_local || "Por definir"}</td>
-    
-    <td className="p-2">
-        <input 
+<table className="w-full text-center border-collapse">
+  <thead>
+    <tr className="text-gray-400 text-sm">{/* Elimina espacios aquí */}
+      <th className="p-2">ID</th>
+      <th className="p-2">Local</th>
+      <th className="p-2">Predicción</th>
+      <th className="p-2">Visitante</th>
+      <th className="p-2">Acción</th>
+    </tr>
+  </thead>
+  <tbody>
+    {partidosFiltrados.map((p) => (
+      <tr key={p.id} className="border-b border-gray-700">{/* Elimina espacios aquí */}
+        <td className="p-2 text-gray-500 font-mono text-sm">{p.id}</td>
+        <td className="p-2">{p.equipo_local || "Por definir"}</td>
+        <td className="p-2">
+          <input 
             disabled={p.prediccion?.goles_local != null || quinielaSeleccionada.is_random} 
             value={tempPreds[p.id]?.local ?? p.prediccion?.goles_local ?? ''} 
             onChange={(e) => handleInputChange(p.id, 'local', e.target.value)} 
             className="w-12 bg-gray-900 border border-gray-600 rounded text-center" 
-        />
-        <span className="mx-1">-</span>
-        <input 
+          />
+          <span className="mx-1">-</span>
+          <input 
             disabled={p.prediccion?.goles_local != null || quinielaSeleccionada.is_random} 
             value={tempPreds[p.id]?.visita ?? p.prediccion?.goles_visitante ?? ''} 
             onChange={(e) => handleInputChange(p.id, 'visita', e.target.value)} 
             className="w-12 bg-gray-900 border border-gray-600 rounded text-center" 
-        />
-    </td>
-    
-    <td className="p-2">{p.equipo_visitante || "Por definir"}</td>
-    
-    <td className="p-2">
-        {!(p.prediccion?.goles_local != null) && !quinielaSeleccionada.is_random && (
+          />
+        </td>
+        <td className="p-2">{p.equipo_visitante || "Por definir"}</td>
+        <td className="p-2">
+          {!(p.prediccion?.goles_local != null) && !quinielaSeleccionada.is_random && (
             <button onClick={() => guardarPrediccion(p.id, p)} className="bg-green-600 px-2 py-1 rounded text-xs">Guardar</button>
-        )}
-    </td>
-</tr>
-                            ))}
-                        </tbody>
-                    </table>
+          )}
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
                 </>
              )}
           </div>
