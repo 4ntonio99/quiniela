@@ -1,0 +1,17 @@
+/api
+├── app/
+│   ├── main.py              # Punto de entrada: instancia FastAPI y carga routers
+│   ├── database.py          # Configuración de SQLAlchemy: motor, sesión y base
+│   ├── models.py            # Modelos ORM (las tablas que viven en Postgres)
+│   ├── schemas.py           # Modelos Pydantic (validación de entrada/salida JSON)
+│   ├── security.py          # Lógica de Hashing y generación de JWT
+│   ├── dependencies.py      # Funciones reutilizables (get_db, get_current_user)
+│   └── routers/             # Módulos de lógica de negocio (endpoints)
+│       ├── auth.py          # Registro y Login
+│       ├── usuarios.py      # Gestión de perfiles
+│       ├── partidos.py      # CRUD de partidos
+│       └── pronosticos.py   # Lógica de quiniela (apuestas)
+├── .env                     # Variables de entorno (puertos, claves secretas)
+├── requirements.txt         # Dependencias del sistema
+├── Dockerfile               # Configuración del entorno Python
+└── docker-compose.yml       # Orquestador (App + Base de Datos)

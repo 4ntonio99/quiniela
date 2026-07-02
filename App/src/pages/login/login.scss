@@ -1,0 +1,53 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+section {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+}
+.loginForm {
+    width: 25%;
+    height: 100vh;
+    background-color: #332F3F;
+}
+.bk {
+    width: 75%;
+    background-image: url('../../assets/wc26.jpeg');
+    background-position: center;
+}
+.loginForm h2 {
+    color: #FEFCEF;
+    width: 80%;
+    margin: 15% auto 20%;
+    text-align: center;
+    font-size: 25px;
+}
+
+.loginForm input {
+    width: 70%;
+    margin: 5% 15%;
+    padding: 10px 15px;
+    border-radius: 20px;
+}
+.btnBox {
+    width: 82%;
+    margin: 20% auto;
+    display: flex;
+    justify-content: space-around;
+}
+
+.btnBox button {
+ padding: 12px 18px;
+ border-radius: 20px;
+ cursor: pointer;
+ background-color: #7359B8;
+ border: 1px solid #7359B8;
+ color: #FEFCEF;
+}
+.btnBox button:hover {
+    transform: scale(1.3);
+}
+

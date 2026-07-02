@@ -1,0 +1,9 @@
+$darkMain: #152636;
+$lightMain: #FEFCEF;
+$titleDark: #FEFCEF;
+$titelLight: #152636;
+
+@mixin title() {
+    font-size: 15px;
+    font-weight: 600;
+}

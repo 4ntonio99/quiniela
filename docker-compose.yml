@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Base de datos
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: quiniela_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Backend (FastAPI)
+  api:
+    build: ./Api
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/quiniela_db
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend (React)
+  web:
+    build: ./App
+    restart: unless-stopped
+    ports:
+      - "5173:80" # Mapea puerto 5173 de tu PC al 80 (Nginx interno)
+
+volumes:
+  postgres_data:

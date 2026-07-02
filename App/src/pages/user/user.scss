@@ -1,0 +1,25 @@
+.dashContainer {
+    display: flex;
+    justify-content: space-around;
+    width: 40%;
+    margin: auto;
+}
+
+.dashContainer button{
+    padding: 20px 25px;
+    cursor: pointer;
+}
+.fase {
+    width: 70%;
+    margin:20px auto;
+}
+.faseBtn {
+    padding: 10px;
+
+}
+.faseBtn:nth-child(1) {
+    float: right;
+}
+.faseBtn:nth-child(2) {
+    float: right;
+}
