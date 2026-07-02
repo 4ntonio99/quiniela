@@ -30,7 +30,7 @@ services:
     build: ./App
     restart: unless-stopped
     ports:
-      - "5173:80" # Mapea puerto 5173 de tu PC al 80 (Nginx interno)
+      - "5173:5173"
 
 volumes:
   postgres_data:
