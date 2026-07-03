@@ -121,14 +121,36 @@ return (
         <button onClick={logout} className="bg-red-600 px-4 py-2 rounded">Salir</button>
       </div>
 
-      <div className="bg-gray-800 p-6 rounded-xl mb-8 border border-blue-500">
-        <h2 className="text-xl font-bold mb-4">¿Quieres jugar?</h2>
-        <div className="dashContainer">
-          {misQuinielas.length === 0 && <button onClick={solicitarGratis}>¡Obtener mi Quiniela GRATIS!</button>}
-          <button onClick={() => solicitarQuiniela(false)}>Solicitar Personalizada</button>
-          <button onClick={() => solicitarQuiniela(true)}>Solicitar Aleatoria</button>
-        </div>
-      </div>
+<div className="bg-gray-800 p-6 rounded-xl mb-8 border border-blue-500">
+  <h2 className="text-xl font-bold mb-4">¿Quieres jugar?</h2>
+  <div className="dashContainer">
+    {misQuinielas.length === 0 ? (
+      // SI NO TIENE QUINIELAS: Solo muestra el botón GRATIS
+      <button 
+        onClick={solicitarGratis}
+        className="bg-green-600 px-4 py-2 rounded hover:bg-green-500"
+      >
+        ¡Obtener mi Quiniela GRATIS!
+      </button>
+    ) : (
+      // SI YA TIENE QUINIELAS: Muestra las otras opciones
+      <>
+        <button 
+          onClick={() => solicitarQuiniela(false)}
+          className="bg-blue-600 px-4 py-2 rounded mr-2 hover:bg-blue-500"
+        >
+          Solicitar Personalizada
+        </button>
+        <button 
+          onClick={() => solicitarQuiniela(true)}
+          className="bg-purple-600 px-4 py-2 rounded hover:bg-purple-500"
+        >
+          Solicitar Aleatoria
+        </button>
+      </>
+    )}
+  </div>
+</div>
 
       <h2 className="text-xl font-bold mb-4">Mis Quinielas Aprobadas</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
