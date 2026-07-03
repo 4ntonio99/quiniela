@@ -40,6 +40,40 @@ export default function AdminDashboard() {
     } catch (error) { alert("Error al procesar solicitud"); }
   };
 
+const handleUploadEquipos = async () => {
+    if (!selectedFile) return alert("Por favor selecciona un archivo primero");
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const text = e.target?.result as string;
+        
+        // 1. Transformar el texto a un array de objetos
+        const equiposActualizados = text.split('\n')
+            .filter(line => line.trim() !== '') // Eliminar líneas vacías
+            .map(line => {
+                const [id, local, visita] = line.split('|');
+                return {
+                    id: parseInt(id.trim()),           // Convertir ID a número
+                    equipo_local: local.trim(),       // Eliminar espacios innecesarios
+                    equipo_visitante: visita.trim()   // Eliminar espacios innecesarios
+                };
+            });
+
+        // 2. Enviar el array de objetos al backend
+        try {
+            console.log("Enviando al backend:", JSON.stringify(equiposActualizados, null, 2));
+            await api.post('/partidos/admin/actualizar-equipos-bulk', equiposActualizados);
+            
+            alert("¡Equipos actualizados exitosamente!");
+            fetchPartidos(); // Recargar la tabla
+        } catch (error) {
+            console.error(error);
+            alert("Error al enviar los datos al servidor");
+        }
+    };
+    reader.readAsText(selectedFile);
+};
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) setSelectedFile(e.target.files[0]);
   };
@@ -125,6 +159,26 @@ const ejecutarRecalculo = async () => {
     </div>
   ))}
 </div>
+{/*Actualizar partidos*/}
+<div className="bg-gray-800 p-6 rounded-xl mb-8 border border-purple-500">
+    <h2 className="text-xl font-bold mb-4">Actualizar Nombres de Equipos (Bulk)</h2>
+    <p className="text-sm text-gray-400 mb-4">Formato: ID|EquipoLocal|EquipoVisita</p>
+    <div className="flex items-center gap-4">
+        <input 
+            type="file" 
+            accept=".txt" 
+            onChange={(e) => e.target.files && setSelectedFile(e.target.files[0])} 
+            className="text-sm bg-gray-900 p-2 rounded border border-gray-600" 
+        />
+        <button 
+            onClick={handleUploadEquipos} 
+            disabled={!selectedFile} 
+            className="bg-purple-600 px-4 py-2 rounded font-bold hover:bg-purple-500 disabled:opacity-50"
+        >
+            Actualizar Equipos
+        </button>
+    </div>
+</div>
 {/*Recarga de puntos*/}
 <div className="bg-gray-800 p-6 rounded-xl mb-8 border border-yellow-500">
     <h2 className="text-xl font-bold mb-4">Acciones Administrativas</h2>
@@ -139,6 +193,7 @@ const ejecutarRecalculo = async () => {
       {/* Carga Masiva */}
       <div className="bg-gray-800 p-6 rounded-xl mb-8 border border-blue-500">
         <h2 className="text-xl font-bold mb-4">Carga Masiva de Resultados</h2>
+        <p className="text-sm text-gray-400 mb-4">Formato: ID|Goles Local|Goles Visitante</p>
         <div className="flex items-center gap-4">
           <input type="file" accept=".txt" ref={fileInputRef} onChange={handleFileChange} className="text-sm bg-gray-900 p-2 rounded border border-gray-600" />
           <button onClick={handleUpload} disabled={!selectedFile} className="bg-blue-600 px-4 py-2 rounded font-bold hover:bg-blue-500 disabled:opacity-50">
@@ -157,10 +212,12 @@ const ejecutarRecalculo = async () => {
             </tr>
           </thead>
           <tbody>
-            {partidos.map(p => (
-              <tr key={`${p.id}-${p.goles_local}-${p.goles_visitante}`} className="border-t border-gray-700">
-                <td className="p-3">{p.id}</td>
-                <td className="p-3">{p.equipo_local}</td>
+  {partidos
+    .sort((a, b) => a.id - b.id) // Ordena por ID de forma ascendente
+    .map(p => (
+      <tr key={`${p.id}-${p.goles_local}-${p.goles_visitante}`} className="border-t border-gray-700">
+        <td className="p-3">{p.id}</td>
+        <td className="p-3">{p.equipo_local}</td>
                 <td className="p-3">
                   <input 
                     type="number" 
