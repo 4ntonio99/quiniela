@@ -1,10 +1,14 @@
+from app import models
+
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from app.database import Base
+from app.database import engine, Base
+
+
 
 class Usuario(Base):
     __tablename__ = "usuarios"
