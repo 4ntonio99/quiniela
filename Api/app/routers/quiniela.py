@@ -6,6 +6,7 @@ from typing import List
 import random
 import sys
 
+from fastapi.responses import PlainTextResponse
 from app.models import Usuario as User 
 from app.security import get_current_user
 
@@ -61,6 +62,44 @@ def solicitar_gratis(current_user: User = Depends(get_current_user), db: Session
     
     db.commit()
     return {"message": "Quiniela gratis creada con predicciones automáticas"}
+
+@router.get("/admin/descargar-reporte")
+def descargar_reporte(db: Session = Depends(database.get_db), 
+                      current_user: models.Usuario = Depends(get_current_user)):
+    
+    # 1. Verificar permisos de admin
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="No autorizado")
+
+    # 2. Obtener todas las predicciones con sus relaciones
+    predicciones = db.query(models.Prediccion).all()
+    
+    # 3. Encabezado para Excel (tabulado)
+    lineas = ["Nombre de usuario\tID Quiniela\tTipo\tID Partido\tLocal\tPred. Local\tVisita\tPred. Visita\tPuntos"]
+    
+    # 4. Construir las filas
+    for p in predicciones:
+        tipo = "Aleatoria" if p.quiniela.is_random else "Decisión"
+        
+        # Datos del partido relacionado
+        id_partido = p.partido.id if p.partido else "N/A"
+        local_nombre = p.partido.equipo_local if p.partido else "N/A"
+        visita_nombre = p.partido.equipo_visitante if p.partido else "N/A"
+        
+        # Crear la línea con tabulaciones
+        linea = (f"{p.usuario.username}\t{p.quiniela.id}\t{tipo}\t"
+                 f"{id_partido}\t{local_nombre}\t{p.goles_local_pred}\t"
+                 f"{visita_nombre}\t{p.goles_visitante_pred}\t{p.quiniela.puntos}")
+        lineas.append(linea)
+    
+    contenido = "\n".join(lineas)
+    
+    # 5. Retornar como archivo descargable
+    return PlainTextResponse(
+        content=contenido, 
+        media_type="text/plain", 
+        headers={"Content-Disposition": "attachment; filename=reporte_quinielas.xls"}
+    )
 
 @router.post("/solicitar")
 def solicitar_quiniela(is_random: bool, db: Session = Depends(database.get_db), 

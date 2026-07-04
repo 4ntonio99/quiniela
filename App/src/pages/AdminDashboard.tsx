@@ -40,6 +40,21 @@ export default function AdminDashboard() {
     } catch (error) { alert("Error al procesar solicitud"); }
   };
 
+const descargarReporte = async () => {
+  try {
+    const response = await api.get('/quinielas/admin/descargar-reporte', { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'reporte_quinielas.txt');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (error) {
+    alert("Error al descargar el reporte");
+  }
+};
+
 const handleUploadEquipos = async () => {
     if (!selectedFile) return alert("Por favor selecciona un archivo primero");
 
@@ -178,6 +193,16 @@ const ejecutarRecalculo = async () => {
             Actualizar Equipos
         </button>
     </div>
+</div>
+
+<div className="bg-gray-800 p-6 rounded-xl mb-8 border border-green-500">
+    <h2 className="text-xl font-bold mb-4">Reportes</h2>
+    <button 
+        onClick={descargarReporte} 
+        className="bg-green-600 px-6 py-2 rounded font-bold hover:bg-green-500"
+    >
+        Descargar Reporte TXT (.txt)
+    </button>
 </div>
 {/*Recarga de puntos*/}
 <div className="bg-gray-800 p-6 rounded-xl mb-8 border border-yellow-500">
