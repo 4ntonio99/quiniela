@@ -15,21 +15,28 @@ def calcular_puntos(db: Session, partido_id: int, goles_real_local: int, goles_r
         if not quiniela or not quiniela.is_approved:
             continue
             
-        # Calcular puntos de ESTE partido solamente
         puntos_partido = 0
-        if pred.goles_local_pred == goles_real_local and pred.goles_visitante_pred == goles_real_visitante:
-            puntos_partido = 3
-        elif (goles_real_local > goles_real_visitante and pred.goles_local_pred > pred.goles_visitante_pred) or \
-             (goles_real_local < goles_real_visitante and pred.goles_local_pred < pred.goles_visitante_pred) or \
-             (goles_real_local == goles_real_visitante and pred.goles_local_pred == pred.goles_visitante_pred):
-            puntos_partido = 1
         
-        # IMPORTANTE: Aquí está el cambio. 
-        # Si ya hiciste un reset a 0 de todas las quinielas antes de llamar a esto,
-        # puedes usar +=. Si no, esto causará errores.
+        # Regla 1: 1 punto por acertar ganador o empate
+        gana_real = (goles_real_local > goles_real_visitante)
+        gana_pred = (pred.goles_local_pred > pred.goles_visitante_pred)
+        empate_real = (goles_real_local == goles_real_visitante)
+        empate_pred = (pred.goles_local_pred == pred.goles_visitante_pred)
+        
+        if (gana_real == gana_pred) and (empate_real == empate_pred):
+            puntos_partido += 1
+            
+        # Regla 2: 1 punto por acertar goles del local
+        if pred.goles_local_pred == goles_real_local:
+            puntos_partido += 1
+            
+        # Regla 3: 1 punto por acertar goles del visitante
+        if pred.goles_visitante_pred == goles_real_visitante:
+            puntos_partido += 1
+        
         quiniela.puntos += puntos_partido
    
-    db.commit() # [cite: 22]
+    db.commit()
 
 # --- ENDPOINTS ---
 
@@ -117,13 +124,24 @@ def obtener_quiniela_usuario(
         pred = pred_map.get(p.id)
         puntos_partido = 0
         
+        # --- NUEVA LÓGICA DE PUNTUACIÓN ---
         if p.jugado and pred and pred.goles_local_pred is not None:
-            if pred.goles_local_pred == p.goles_local and pred.goles_visitante_pred == p.goles_visitante:
-                puntos_partido = 3
-            elif (p.goles_local > p.goles_visitante and pred.goles_local_pred > pred.goles_visitante_pred) or \
-                 (p.goles_local < p.goles_visitante and pred.goles_local_pred < pred.goles_visitante_pred) or \
-                 (p.goles_local == p.goles_visitante and pred.goles_local_pred == pred.goles_visitante_pred):
-                puntos_partido = 1
+            # 1. Punto por acertar ganador o empate
+            gana_real = (p.goles_local > p.goles_visitante)
+            gana_pred = (pred.goles_local_pred > pred.goles_visitante_pred)
+            empate_real = (p.goles_local == p.goles_visitante)
+            empate_pred = (pred.goles_local_pred == pred.goles_visitante_pred)
+            
+            if (gana_real == gana_pred) and (empate_real == empate_pred):
+                puntos_partido += 1
+            
+            # 2. Punto por acertar goles del local
+            if pred.goles_local_pred == p.goles_local:
+                puntos_partido += 1
+            
+            # 3. Punto por acertar goles del visitante
+            if pred.goles_visitante_pred == p.goles_visitante:
+                puntos_partido += 1
 
         resultado.append({
             "id": p.id, 
