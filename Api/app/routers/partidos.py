@@ -12,26 +12,24 @@ def calcular_puntos(db: Session, partido_id: int, goles_real_local: int, goles_r
     
     for pred in predicciones:
         quiniela = db.query(models.Quiniela).filter(models.Quiniela.id == pred.quiniela_id).first()
-
         if not quiniela or not quiniela.is_approved:
             continue
             
-        puntos_ganados = 0
-        
+        # Calcular puntos de ESTE partido solamente
+        puntos_partido = 0
         if pred.goles_local_pred == goles_real_local and pred.goles_visitante_pred == goles_real_visitante:
-            puntos_ganados = 3
-        else:
-            gana_real = (goles_real_local > goles_real_visitante)
-            gana_pred = (pred.goles_local_pred > pred.goles_visitante_pred)
-            empate_real = (goles_real_local == goles_real_visitante)
-            empate_pred = (pred.goles_local_pred == pred.goles_visitante_pred)
-            
-            if (gana_real == gana_pred) or (empate_real == empate_pred):
-                puntos_ganados = 1
+            puntos_partido = 3
+        elif (goles_real_local > goles_real_visitante and pred.goles_local_pred > pred.goles_visitante_pred) or \
+             (goles_real_local < goles_real_visitante and pred.goles_local_pred < pred.goles_visitante_pred) or \
+             (goles_real_local == goles_real_visitante and pred.goles_local_pred == pred.goles_visitante_pred):
+            puntos_partido = 1
         
-        quiniela.puntos += puntos_ganados
-    
-    db.commit()
+        # IMPORTANTE: Aquí está el cambio. 
+        # Si ya hiciste un reset a 0 de todas las quinielas antes de llamar a esto,
+        # puedes usar +=. Si no, esto causará errores.
+        quiniela.puntos += puntos_partido
+   
+    db.commit() # [cite: 22]
 
 # --- ENDPOINTS ---
 
@@ -207,15 +205,10 @@ async def cargar_resultados_txt(
         raise HTTPException(status_code=403, detail="No autorizado")
 
     content = await file.read()
-    lines = content.decode("utf-8-sig").splitlines() # 'utf-8-sig' evita errores por caracteres ocultos 
+    # 'utf-8-sig' evita errores por caracteres ocultos 
+    lines = content.decode("utf-8-sig").splitlines() 
 
-    # 1. PASO PREVIO: Resetear puntos de todas las quinielas a 0 
-    todas_quinielas = db.query(models.Quiniela).all()
-    for q in todas_quinielas:
-        q.puntos = 0
-    db.commit()
-
-    # 2. PROCESAR EL ARCHIVO
+    # PROCESAR EL ARCHIVO (Solo actualizar datos)
     for line in lines:
         clean_line = line.replace('"', '').replace(',', '').strip()
         if not clean_line: continue
@@ -227,14 +220,10 @@ async def cargar_resultados_txt(
                 partido.goles_local = local
                 partido.goles_visitante = visita
                 partido.jugado = True
-                db.commit() # Guardamos los goles del partido [cite: 14, 15]
+                # Guardamos los cambios de los goles [cite: 38]
+                db.commit() 
         except Exception as e:
             print(f"Error procesando línea {line}: {e}")
             continue
-
-    # 3. RECALCULAR PUNTOS DE TODOS LOS PARTIDOS YA JUGADOS 
-    partidos_jugados = db.query(models.Partido).filter(models.Partido.jugado == True).all()
-    for p in partidos_jugados:
-        calcular_puntos(db, p.id, p.goles_local, p.goles_visitante)
             
-    return {"message": "Resultados actualizados y puntos recalculados correctamente"}
+    return {"message": "Resultados actualizados correctamente sin recálculo de puntos"}
