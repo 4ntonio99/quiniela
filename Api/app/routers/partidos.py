@@ -207,8 +207,15 @@ async def cargar_resultados_txt(
         raise HTTPException(status_code=403, detail="No autorizado")
 
     content = await file.read()
-    lines = content.decode("utf-8").splitlines()
+    lines = content.decode("utf-8-sig").splitlines() # 'utf-8-sig' evita errores por caracteres ocultos 
 
+    # 1. PASO PREVIO: Resetear puntos de todas las quinielas a 0 
+    todas_quinielas = db.query(models.Quiniela).all()
+    for q in todas_quinielas:
+        q.puntos = 0
+    db.commit()
+
+    # 2. PROCESAR EL ARCHIVO
     for line in lines:
         clean_line = line.replace('"', '').replace(',', '').strip()
         if not clean_line: continue
@@ -216,13 +223,18 @@ async def cargar_resultados_txt(
             partido_id, local, visita = map(int, clean_line.split('|'))
             partido = db.query(models.Partido).filter(models.Partido.id == partido_id).first()
             
-            if partido and not partido.jugado:
+            if partido:
                 partido.goles_local = local
                 partido.goles_visitante = visita
                 partido.jugado = True
-                calcular_puntos(db, partido.id, local, visita)
+                db.commit() # Guardamos los goles del partido [cite: 14, 15]
         except Exception as e:
             print(f"Error procesando línea {line}: {e}")
             continue
+
+    # 3. RECALCULAR PUNTOS DE TODOS LOS PARTIDOS YA JUGADOS 
+    partidos_jugados = db.query(models.Partido).filter(models.Partido.jugado == True).all()
+    for p in partidos_jugados:
+        calcular_puntos(db, p.id, p.goles_local, p.goles_visitante)
             
-    return {"message": "Resultados actualizados y puntos recalculados"}
+    return {"message": "Resultados actualizados y puntos recalculados correctamente"}
