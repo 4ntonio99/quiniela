@@ -35,6 +35,10 @@ def calcular_puntos(db: Session, partido_id: int, goles_real_local: int, goles_r
             puntos_partido += 1
         
         quiniela.puntos += puntos_partido
+
+        pred.puntos_obtenidos = puntos_partido
+        quiniela.puntos += puntos_partido
+        db.add(pred)
    
     db.commit()
 
@@ -104,6 +108,7 @@ def obtener_quiniela_usuario(
     db: Session = Depends(database.get_db),
     current_user: models.Usuario = Depends(security.get_current_user)
 ):
+    # 1. Validar existencia y propiedad de la quiniela
     quiniela = db.query(models.Quiniela).filter(
         models.Quiniela.id == quiniela_id,
         models.Quiniela.user_id == current_user.id
@@ -115,34 +120,17 @@ def obtener_quiniela_usuario(
     if not quiniela.is_approved:
         raise HTTPException(status_code=403, detail="Esta quiniela aún no está aprobada.")
 
+    # 2. Obtener partidos y predicciones
     partidos = db.query(models.Partido).all()
     predicciones = db.query(models.Prediccion).filter(models.Prediccion.quiniela_id == quiniela_id).all()
     pred_map = {p.partido_id: p for p in predicciones}
 
+    # 3. Construir el resultado leyendo DIRECTO de la BD
     resultado = []
     for p in partidos:
         pred = pred_map.get(p.id)
-        puntos_partido = 0
         
-        # --- NUEVA LÓGICA DE PUNTUACIÓN ---
-        if p.jugado and pred and pred.goles_local_pred is not None:
-            # 1. Punto por acertar ganador o empate
-            gana_real = (p.goles_local > p.goles_visitante)
-            gana_pred = (pred.goles_local_pred > pred.goles_visitante_pred)
-            empate_real = (p.goles_local == p.goles_visitante)
-            empate_pred = (pred.goles_local_pred == pred.goles_visitante_pred)
-            
-            if (gana_real == gana_pred) and (empate_real == empate_pred):
-                puntos_partido += 1
-            
-            # 2. Punto por acertar goles del local
-            if pred.goles_local_pred == p.goles_local:
-                puntos_partido += 1
-            
-            # 3. Punto por acertar goles del visitante
-            if pred.goles_visitante_pred == p.goles_visitante:
-                puntos_partido += 1
-
+        # Solo se agrega UN objeto por partido
         resultado.append({
             "id": p.id, 
             "fase": p.fase, 
@@ -157,12 +145,13 @@ def obtener_quiniela_usuario(
                 "goles_visitante": pred.goles_visitante_pred if pred else None,
                 "bloqueado": True if pred else False
             },
-            "puntos_obtenidos": puntos_partido
+            # Leemos el valor guardado en la BD (si no existe, 0)
+            "puntos_obtenidos": pred.puntos_obtenidos if pred else 0
         })
     
     return {
         "usuario": current_user.username,
-        "total_puntos": quiniela.puntos,
+        "total_puntos": quiniela.puntos, # Leído de la tabla Quiniela
         "datos": resultado
     }
 
@@ -198,20 +187,29 @@ async def recalcular_todos(
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="No autorizado")
 
-    # 1. Resetear puntos de todas las quinielas a 0
+    # 1. Resetear TODOS los puntos a 0 para empezar desde cero
+    # Reseteamos quinielas
     todas_quinielas = db.query(models.Quiniela).all()
     for q in todas_quinielas:
         q.puntos = 0
-    db.commit()
+    
+    # Reseteamos puntos individuales de cada predicción (campo nuevo)
+    todas_predicciones = db.query(models.Prediccion).all()
+    for pred in todas_predicciones:
+        pred.puntos_obtenidos = 0
+        
+    db.commit() # Aplicamos el borrado de puntos viejos
 
     # 2. Obtener todos los partidos que ya fueron jugados
     partidos_jugados = db.query(models.Partido).filter(models.Partido.jugado == True).all()
 
     # 3. Recalcular para cada partido
+    # Tu función calcular_puntos debe estar actualizada para guardar 
+    # tanto en q.puntos como en pred.puntos_obtenidos
     for p in partidos_jugados:
         calcular_puntos(db, p.id, p.goles_local, p.goles_visitante)
     
-    return {"message": "Recálculo completado exitosamente"}
+    return {"message": "Recálculo completado exitosamente y base de datos sincronizada"}
 
 @router.post("/admin/cargar-resultados-txt")
 async def cargar_resultados_txt(

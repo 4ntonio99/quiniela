@@ -65,34 +65,33 @@ def solicitar_gratis(current_user: User = Depends(get_current_user), db: Session
 
 @router.get("/admin/descargar-reporte")
 def descargar_reporte(db: Session = Depends(database.get_db)):
-    # Obtenemos todas las predicciones cargando los datos relacionados para eficiencia
+    # 1. Obtener todas las predicciones. 
+    # El 'order_by' asegura que el reporte esté agrupado por quiniela_id.
     predicciones = db.query(models.Prediccion).order_by(models.Prediccion.quiniela_id).all()
     
-    # Encabezado
+    # 2. Encabezado del reporte
     lineas = ["Nombre usuario|ID Quiniela|Tipo|ID Partido|Local|Pred Local|Visita|Pred Visita|Goles Local Real|Goles Visita Real|Puntos"]
     
+    # 3. Recorrer y leer los datos que ya fueron procesados por el motor
     for p in predicciones:
-        # Extraemos la información de la BD (asumiendo que las relaciones están bien)
+        # Extraer datos de la relación (Usuario, Quiniela, Partido)
         username = p.usuario.username if p.usuario else "N/A"
         quiniela_id = p.quiniela_id
         tipo = "Aleatoria" if p.quiniela.is_random else "Decisión"
         
-        # Datos del partido
         partido = p.partido
         id_partido = partido.id if partido else "N/A"
         local_nombre = partido.equipo_local if partido else "N/A"
         visita_nombre = partido.equipo_visitante if partido else "N/A"
         
-        # Goles reales (de la BD)
+        # Leer goles reales y los puntos YA CALCULADOS por el motor
         goles_l_real = partido.goles_local if partido else 0
         goles_v_real = partido.goles_visitante if partido else 0
         
-        # Puntos: Aquí es donde traes el valor de la BD. 
-        # NOTA: Si aún no tienes la columna, debes agregarla en models.txt 
-        # y guardar el resultado del motor en ella.
-        puntos_pred = getattr(p, 'puntos_obtenidos', 0) 
+        # LECTURA DIRECTA DE LA BD (Puntos almacenados en la tabla predicciones)
+        puntos_pred = p.puntos_obtenidos if hasattr(p, 'puntos_obtenidos') else 0
         
-        # Construcción de la línea
+        # 4. Construcción de la línea (sin cálculos ni if/else de reglas)
         linea = (f"{username}|{quiniela_id}|{tipo}|"
                  f"{id_partido}|{local_nombre}|{p.goles_local_pred}|"
                  f"{p.goles_visitante_pred}|{visita_nombre}|"
@@ -100,6 +99,7 @@ def descargar_reporte(db: Session = Depends(database.get_db)):
         
         lineas.append(linea)
     
+    # 5. Retornar el archivo listo
     return PlainTextResponse(
         content="\n".join(lineas), 
         media_type="text/plain", 

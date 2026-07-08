@@ -61,6 +61,7 @@ class Prediccion(Base):
     partido_id = Column(Integer, ForeignKey("partidos.id"))
     goles_local_pred = Column(Integer)
     goles_visitante_pred = Column(Integer)
+    puntos_obtenidos = Column(Integer, default=0)
 
     usuario = relationship("Usuario", back_populates="predicciones")
     partido = relationship("Partido", back_populates="predicciones")
