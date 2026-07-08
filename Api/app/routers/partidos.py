@@ -34,7 +34,6 @@ def calcular_puntos(db: Session, partido_id: int, goles_real_local: int, goles_r
         if pred.goles_visitante_pred == goles_real_visitante:
             puntos_partido += 1
         
-        quiniela.puntos += puntos_partido
 
         pred.puntos_obtenidos = puntos_partido
         quiniela.puntos += puntos_partido
