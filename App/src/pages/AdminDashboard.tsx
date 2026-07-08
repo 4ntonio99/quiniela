@@ -8,6 +8,7 @@ export default function AdminDashboard() {
   const [partidos, setPartidos] = useState<Partido[]>([]);
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
   const [tempResults, setTempResults] = useState<Record<number, { local: number | null, visita: number | null }>>({});
+  const [cargando, setCargando] = useState(false);
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,11 +97,14 @@ const handleUploadEquipos = async () => {
 const ejecutarRecalculo = async () => {
   if (!window.confirm("¿Estás seguro de recalcular todos los puntos? Esto puede tardar unos segundos.")) return;
   
+  setCargando(true); // Activa el modo carga
   try {
     await api.post('/partidos/admin/recalcular-todos');
     alert("¡Puntos recalculados exitosamente!");
   } catch (error) {
     alert("Error al recalcular puntos");
+  } finally {
+    setCargando(false); // Desactiva el modo carga sin importar si hubo éxito o error
   }
 };
 
@@ -206,13 +210,16 @@ const ejecutarRecalculo = async () => {
 </div>
 {/*Recarga de puntos*/}
 <div className="bg-gray-800 p-6 rounded-xl mb-8 border border-yellow-500">
-    <h2 className="text-xl font-bold mb-4">Acciones Administrativas</h2>
-    <button 
-        onClick={ejecutarRecalculo} 
-        className="bg-yellow-600 px-6 py-2 rounded font-bold hover:bg-yellow-500"
-    >
-        Recalcular Puntos Globales
-    </button>
+  <h2 className="text-xl font-bold mb-4">Acciones Administrativas</h2>
+  <button 
+    onClick={ejecutarRecalculo} 
+    disabled={cargando} // Deshabilita el botón mientras carga
+    className={`px-6 py-2 rounded font-bold ${
+      cargando ? 'bg-gray-600 cursor-not-allowed' : 'bg-yellow-600 hover:bg-yellow-500'
+    }`}
+  >
+    {cargando ? "Cargando..." : "Recalcular Puntos Globales"}
+  </button>
 </div>
 
       {/* Carga Masiva */}

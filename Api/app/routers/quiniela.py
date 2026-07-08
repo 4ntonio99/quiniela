@@ -65,21 +65,16 @@ def solicitar_gratis(current_user: User = Depends(get_current_user), db: Session
 
 @router.get("/admin/descargar-reporte")
 def descargar_reporte(db: Session = Depends(database.get_db)):
-
-    # 2. Obtener todas las predicciones ordenadas por quiniela_id
+    # Obtenemos todas las predicciones cargando los datos relacionados para eficiencia
     predicciones = db.query(models.Prediccion).order_by(models.Prediccion.quiniela_id).all()
     
-    # 3. Encabezado con columnas separadas
+    # Encabezado
     lineas = ["Nombre usuario|ID Quiniela|Tipo|ID Partido|Local|Pred Local|Visita|Pred Visita|Goles Local Real|Goles Visita Real|Puntos"]
     
-    ultima_quiniela_id = None
-    
-    # 4. Construir las filas
     for p in predicciones:
-        # Salto de renglón si cambia la quiniela
-        if ultima_quiniela_id is not None and p.quiniela.id != ultima_quiniela_id:
-            lineas.append(linea)
-            
+        # Extraemos la información de la BD (asumiendo que las relaciones están bien)
+        username = p.usuario.username if p.usuario else "N/A"
+        quiniela_id = p.quiniela_id
         tipo = "Aleatoria" if p.quiniela.is_random else "Decisión"
         
         # Datos del partido
@@ -88,34 +83,25 @@ def descargar_reporte(db: Session = Depends(database.get_db)):
         local_nombre = partido.equipo_local if partido else "N/A"
         visita_nombre = partido.equipo_visitante if partido else "N/A"
         
-        # Goles reales separados
-        goles_l_real = partido.goles_local if (partido and partido.jugado is not None) else "0"
-        goles_v_real = partido.goles_visitante if (partido and partido.jugado is not None) else "0"
-
-# Lógica para calcular puntos
-        puntos_pred = 0
-        if partido and partido.jugado:
-            if p.goles_local_pred == partido.goles_local and p.goles_visitante_pred == partido.goles_visitante:
-                puntos_pred = 3
-            elif (p.goles_local_pred > p.goles_visitante_pred and partido.goles_local > partido.goles_visitante) or \
-                 (p.goles_local_pred < p.goles_visitante_pred and partido.goles_local < partido.goles_visitante) or \
-                 (p.goles_local_pred == p.goles_visitante_pred and partido.goles_local == partido.goles_visitante):
-                puntos_pred = 1
+        # Goles reales (de la BD)
+        goles_l_real = partido.goles_local if partido else 0
+        goles_v_real = partido.goles_visitante if partido else 0
         
-        # Crear la línea con las nuevas columnas
-        linea = (f"{p.usuario.username}|{p.quiniela.id}|{tipo}|"
+        # Puntos: Aquí es donde traes el valor de la BD. 
+        # NOTA: Si aún no tienes la columna, debes agregarla en models.txt 
+        # y guardar el resultado del motor en ella.
+        puntos_pred = getattr(p, 'puntos_obtenidos', 0) 
+        
+        # Construcción de la línea
+        linea = (f"{username}|{quiniela_id}|{tipo}|"
                  f"{id_partido}|{local_nombre}|{p.goles_local_pred}|"
                  f"{p.goles_visitante_pred}|{visita_nombre}|"
                  f"{goles_l_real}|{goles_v_real}|{puntos_pred}")
         
         lineas.append(linea)
-        ultima_quiniela_id = p.quiniela.id
     
-    contenido = "\n".join(lineas)
-    
-    # 5. Retornar archivo
     return PlainTextResponse(
-        content=contenido, 
+        content="\n".join(lineas), 
         media_type="text/plain", 
         headers={"Content-Disposition": "attachment; filename=reporte_quinielas.txt"}
     )
