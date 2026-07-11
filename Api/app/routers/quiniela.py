@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app import models, security, database
 from pydantic import BaseModel
+from datetime import datetime
 from typing import List
 import random
 import sys
@@ -67,10 +68,12 @@ def solicitar_gratis(current_user: User = Depends(get_current_user), db: Session
 def descargar_reporte(db: Session = Depends(database.get_db)):
     # 1. Obtener todas las predicciones. 
     # El 'order_by' asegura que el reporte esté agrupado por quiniela_id.
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    filename = f"quinielas_{timestamp}.txt"
     predicciones = db.query(models.Prediccion).order_by(models.Prediccion.quiniela_id).all()
     
     # 2. Encabezado del reporte
-    lineas = ["Nombre usuario|ID Quiniela|Tipo|ID Partido|Local|Pred Local|Visita|Pred Visita|Goles Local Real|Goles Visita Real|Puntos"]
+    lineas = ["Nombre usuario | ID Quiniela | Tipo | ID Partido | Local | Pred Local | Pred Visita | Visita | Goles Local Real | Goles Visita Real | Puntos"]
     
     # 3. Recorrer y leer los datos que ya fueron procesados por el motor
     for p in predicciones:
@@ -103,7 +106,7 @@ def descargar_reporte(db: Session = Depends(database.get_db)):
     return PlainTextResponse(
         content="\n".join(lineas), 
         media_type="text/plain", 
-        headers={"Content-Disposition": "attachment; filename=reporte_quinielas.txt"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
 @router.post("/solicitar")
@@ -144,6 +147,30 @@ def obtener_pendientes(db: Session = Depends(database.get_db),
         } for q in pendientes
     ]
 
+@router.get("/admin/todas-las-quinielas")
+def obtener_todas_las_quinielas(db: Session = Depends(database.get_db), 
+                                 current_user: User = Depends(get_current_user)):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    # Hacemos un join entre Quiniela y Usuario
+    quinielas = db.query(models.Quiniela, models.Usuario.username).join(
+        models.Usuario, models.Quiniela.user_id == models.Usuario.id
+    ).all()
+    
+    # Formateamos la respuesta para incluir el username
+    resultado = []
+    for q, username in quinielas:
+        resultado.append({
+            "id": q.id,
+            "user_id": q.user_id,
+            "user_name": username,
+            "puntos": q.puntos,
+            "is_random": q.is_random,
+            "is_approved": q.is_approved
+        })
+    return resultado
+
 @router.put("/admin/aprobar/{quiniela_id}")
 def aprobar_quiniela(quiniela_id: int, db: Session = Depends(database.get_db), 
                      current_user: User = Depends(get_current_user)):
@@ -179,6 +206,21 @@ def aprobar_quiniela(quiniela_id: int, db: Session = Depends(database.get_db),
     sys.stdout.flush()
     
     return {"message": "Quiniela aprobada y pronósticos aleatorios generados"}
+
+@router.put("/admin/toggle-aprobacion/{quiniela_id}")
+def toggle_aprobacion(quiniela_id: int, db: Session = Depends(database.get_db), 
+                      current_user: User = Depends(get_current_user)):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    q = db.query(models.Quiniela).filter(models.Quiniela.id == quiniela_id).first()
+    if not q:
+        raise HTTPException(status_code=404, detail="Quiniela no encontrada")
+    
+    # Cambia True a False y viceversa
+    q.is_approved = not q.is_approved
+    db.commit()
+    return {"message": f"Quiniela ahora está {'aprobada' if q.is_approved else 'desaprobada'}"}
 
 @router.delete("/admin/rechazar/{quiniela_id}")
 def rechazar_quiniela(quiniela_id: int, db: Session = Depends(database.get_db), 
