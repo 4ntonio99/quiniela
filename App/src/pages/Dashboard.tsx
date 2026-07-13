@@ -117,6 +117,7 @@ const partidosFiltrados = [...quinielaData.datos].filter(p => {
 .sort((a, b) => a.id - b.id);
 
   const yaTieneQuiniela = misQuinielas.length > 0;
+  console.log (ranking)
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8 flex flex-col items-center">
@@ -156,23 +157,26 @@ const partidosFiltrados = [...quinielaData.datos].filter(p => {
             </button>
           ))}
         </div>
-
-        {fase === 'Ranking' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {['Decisión', 'Aleatoria'].map(tipo => (
-              <div key={tipo} className="bg-gray-700 p-4 rounded-lg">
-                <h3 className="font-bold mb-3 border-b border-gray-600">{tipo}</h3>
-                {ranking.filter(r => (tipo === 'Aleatoria' ? r.is_random : !r.is_random))
-                  .sort((a, b) => b.puntos - a.puntos)
-                  .map((r, i) => (
-                    <div key={i} className="flex justify-between py-1 text-sm">
+      {fase === 'Ranking' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {['Decisión', 'Aleatoria'].map(tipo => (
+            <div key={tipo} className="bg-gray-700 p-4 rounded-lg">
+              <h3 className="font-bold mb-3 border-b border-gray-600">{tipo}</h3>
+              {ranking.filter(r => (tipo === 'Aleatoria' ? r.is_random : !r.is_random))
+                .sort((a, b) => b.puntos - a.puntos)
+                .map((r, i) => (
+                  <div key={i} className="flex justify-between py-1 text-sm items-center">
+                    {/* Agregamos el ID de la quiniela aquí */}
+                    <div className="flex items-center gap-2">
                       <span>{i + 1}. {r.username}</span>
-                      <span className="font-bold text-yellow-400">{r.puntos} pts</span>
                     </div>
-                  ))}
-              </div>
-            ))}
-          </div>
+                    <span className="font-bold text-yellow-400">{r.puntos} pts</span>
+                    <span className="text-gray-400 text-xs">#{r.quiniela_id}</span>
+                  </div>
+                ))}
+            </div>
+          ))}
+        </div>
         ) : (
           quinielaSeleccionada && (
             <div className="bg-gray-800 p-6 rounded-xl">

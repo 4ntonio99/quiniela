@@ -18,7 +18,8 @@ class RankingResponse(BaseModel):
     username: str
     puntos: int
     is_random: bool
-
+    quiniela_id: int
+    
     class Config:
         from_attributes = True
 
@@ -73,7 +74,7 @@ def descargar_reporte(db: Session = Depends(database.get_db)):
     predicciones = db.query(models.Prediccion).order_by(models.Prediccion.quiniela_id).all()
     
     # 2. Encabezado del reporte
-    lineas = ["Nombre usuario | ID Quiniela | Tipo | ID Partido | Local | Pred Local | Pred Visita | Visita | Goles Local Real | Goles Visita Real | Puntos"]
+    lineas = ["Nombre usuario|ID Quiniela|Tipo|ID Partido|Local|Pred Local|Pred Visita|Visita|Goles Local Real|Goles Visita Real|Puntos"]
     
     # 3. Recorrer y leer los datos que ya fueron procesados por el motor
     for p in predicciones:
@@ -239,7 +240,8 @@ def obtener_ranking(db: Session = Depends(database.get_db)):
     ranking = db.query(
         models.Usuario.username,
         models.Quiniela.puntos,
-        models.Quiniela.is_random
+        models.Quiniela.is_random,
+        models.Quiniela.id.label("quiniela_id")
     ).join(models.Quiniela, models.Usuario.id == models.Quiniela.user_id)\
      .filter(models.Usuario.is_admin == False, models.Quiniela.is_approved == True)\
      .order_by(models.Quiniela.puntos.desc())\
