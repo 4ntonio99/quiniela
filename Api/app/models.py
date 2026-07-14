@@ -18,9 +18,10 @@ class Usuario(Base):
     hashed_password = Column(String)
     is_admin = Column(Boolean, default=False)
 
+
     # Relaciones
     predicciones = relationship("Prediccion", back_populates="usuario")
-    quinielas = relationship("Quiniela", back_populates="usuario") # Nueva relación
+    quinielas = relationship("Quiniela", back_populates="usuario")
 
 class Quiniela(Base):
     __tablename__ = "quinielas"
@@ -66,3 +67,11 @@ class Prediccion(Base):
     usuario = relationship("Usuario", back_populates="predicciones")
     partido = relationship("Partido", back_populates="predicciones")
     quiniela = relationship("Quiniela", back_populates="predicciones")
+
+class PrediccionResagada(Base):
+    __tablename__ = "predicciones_resagadas"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    prediccion_id = Column(Integer, ForeignKey("predicciones.id"))
+    goles_local_asignado = Column(Integer)
+    goles_visitante_asignado = Column(Integer)

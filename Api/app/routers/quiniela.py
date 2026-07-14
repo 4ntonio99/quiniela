@@ -69,8 +69,9 @@ def solicitar_gratis(current_user: User = Depends(get_current_user), db: Session
 def descargar_reporte(db: Session = Depends(database.get_db)):
     # 1. Obtener todas las predicciones. 
     # El 'order_by' asegura que el reporte esté agrupado por quiniela_id.
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    filename = f"quinielas_{timestamp}.txt"
+# %Y: año con 4 dígitos, %m: mes, %d: día, %H: hora (24h), %M: minutos
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M")
+    filename = f"quiniela_{timestamp}.txt"
     predicciones = db.query(models.Prediccion).order_by(models.Prediccion.quiniela_id).all()
     
     # 2. Encabezado del reporte
@@ -247,3 +248,71 @@ def obtener_ranking(db: Session = Depends(database.get_db)):
      .order_by(models.Quiniela.puntos.desc())\
      .all()
     return ranking
+
+    # Buscamos la predicción por partido_id y usuario_id
+@router.post("/admin/llenar-aleatorio/{quiniela_id}/{partido_id}")
+def llenar_prediccion_aleatoria(
+    quiniela_id: int, 
+    partido_id: int, 
+    db: Session = Depends(database.get_db)
+):
+    quiniela = db.query(models.Quiniela).filter(models.Quiniela.id == quiniela_id).first()
+    if not quiniela:
+        raise HTTPException(status_code=404, detail="Quiniela no encontrada")
+
+    pred = db.query(models.Prediccion).filter(
+        models.Prediccion.quiniela_id == quiniela_id,
+        models.Prediccion.partido_id == partido_id
+    ).first()
+
+    goles_l = random.randint(0, 4)
+    goles_v = random.randint(0, 4)
+
+    if pred:
+        pred.goles_local_pred = goles_l
+        pred.goles_visitante_pred = goles_v
+    else:
+        pred = models.Prediccion(
+            quiniela_id=quiniela_id,
+            partido_id=partido_id,
+            usuario_id=quiniela.user_id,
+            goles_local_pred=goles_l,
+            goles_visitante_pred=goles_v
+        )
+        db.add(pred)
+        db.flush() # Importante: flush asigna el ID a la nueva predicción antes del commit
+
+    # --- AQUÍ ESTÁ LO QUE TE FALTABA ---
+    nueva_resagada = models.PrediccionResagada(
+        prediccion_id=pred.id, # Ahora pred.id es válido gracias al flush si era nuevo
+        goles_local_asignado=goles_l,
+        goles_visitante_asignado=goles_v
+    )
+    db.add(nueva_resagada)
+    # -----------------------------------
+    
+    db.commit()
+    return {"message": "Predicción actualizada y registrada en resagadas"}
+
+@router.get("/rezagadas")
+def get_predicciones_resagadas(db: Session = Depends(database.get_db)): # Usa database.get_db
+    # Usa models.PrediccionResagada, models.Prediccion y models.Usuario
+    resultados = db.query(
+        models.PrediccionResagada.id,
+        models.PrediccionResagada.prediccion_id,
+        models.Usuario.username.label("nombre_usuario"), 
+        models.PrediccionResagada.goles_local_asignado,
+        models.PrediccionResagada.goles_visitante_asignado
+    ).join(models.Prediccion, models.PrediccionResagada.prediccion_id == models.Prediccion.id)\
+     .join(models.Usuario, models.Prediccion.usuario_id == models.Usuario.id)\
+     .all()
+
+    return [
+        {
+            "id": r.id,
+            "prediccion_id": r.prediccion_id,
+            "nombre_usuario": r.nombre_usuario,
+            "goles_local_asignado": r.goles_local_asignado,
+            "goles_visitante_asignado": r.goles_visitante_asignado
+        } for r in resultados
+    ]

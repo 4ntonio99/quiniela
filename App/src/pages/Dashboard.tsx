@@ -96,6 +96,19 @@ export default function Dashboard() {
     } catch (error) { alert("Error al guardar predicción"); }
   };
 
+// Cambia la definición para recibir dos parámetros
+const llenarAleatorio = async (quinielaId: number, partidoId: number) => {
+  try {
+    // Construye la URL con los dos parámetros
+    await api.post(`/quinielas/admin/llenar-aleatorio/${quinielaId}/${partidoId}`);
+    alert("Predicción completada aleatoriamente.");
+    fetchPartidos(); 
+  } catch (error) {
+    console.error(error);
+    alert("Error al llenar la predicción aleatoriamente.");
+  }
+};
+
 const partidosFiltrados = [...quinielaData.datos].filter(p => {
     if (fase === 'Ranking' || fase === 'Todos') return true;
     
@@ -209,8 +222,41 @@ const partidosFiltrados = [...quinielaData.datos].filter(p => {
                         </td>
                         <td className="p-2">{p.equipo_visitante || "Por definir"}</td>
                         <td className="p-2 text-blue-400">{(p.goles_local !== null && p.goles_visitante !== null) ? `${p.goles_local} - ${p.goles_visitante}` : "--"}</td>
+                        
                         <td className="p-2 text-yellow-400">{(p as any).puntos_obtenidos > 0 ? `+${(p as any).puntos_obtenidos}` : '0'}</td>
-                        <td className="p-2">{!esBloqueado && !(p.prediccion?.goles_local != null) && !quinielaSeleccionada.is_random && <button onClick={() => guardarPrediccion(p.id, p)} className="bg-green-600 px-2 py-1 rounded text-xs">Guardar</button>}</td>
+<td className="p-2">
+  {!esBloqueado && !quinielaSeleccionada.is_random && (
+    <>
+      {/* 
+         Condición: Si el usuario NO ha llenado su marcador (goles_local == null) 
+         Y el admin YA subió el resultado real (p.goles_local !== null), 
+         mostramos el botón "Llenar Aleatorio".
+      */}
+      {p.prediccion?.goles_local == null && p.goles_local !== null ? (
+<button 
+  onClick={() => llenarAleatorio(quinielaSeleccionada.id, p.id)} // Envías quiniela y partido
+  className="bg-purple-600 px-2 py-1 rounded text-xs hover:bg-purple-500"
+>
+  Llenar Aleatorio
+</button>
+      ) : (
+        /* 
+           Si no se cumple la condición anterior, pero el usuario todavía 
+           puede guardar (o no ha llenado), mostramos el botón "Guardar".
+        */
+        !(p.prediccion?.goles_local != null) && (
+          <button 
+            onClick={() => guardarPrediccion(p.id, p)} 
+            className="bg-green-600 px-2 py-1 rounded text-xs hover:bg-green-500"
+            
+          >
+            Guardar
+          </button>
+        )
+      )}
+    </>
+  )}
+</td>
                       </tr>
                     );
                   })}

@@ -140,6 +140,7 @@ def obtener_quiniela_usuario(
             "goles_local": p.goles_local if p.jugado else None,
             "goles_visitante": p.goles_visitante if p.jugado else None,
             "prediccion": {
+                "id": pred.id if pred else None,
                 "goles_local": pred.goles_local_pred if pred else None,
                 "goles_visitante": pred.goles_visitante_pred if pred else None,
                 "bloqueado": True if pred else False

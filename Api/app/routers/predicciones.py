@@ -46,3 +46,5 @@ def crear_prediccion(
     db.refresh(nueva_prediccion)
     
     return nueva_prediccion
+
+import random

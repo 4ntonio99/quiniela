@@ -5,14 +5,21 @@ export interface Partido {
   estadio: string;
   equipo_local: string;
   equipo_visitante: string;
-  // Estos son los únicos campos de goles que tu API envía realmente
   goles_local: number | null;
   goles_visitante: number | null;
-  jugado?: boolean; // Asegúrate de tener este para saber si se jugó
+  jugado?: boolean;
   prediccion?: {
+    id: number; // <--- AGREGA ESTA LÍNEA
     goles_local: number | null;
     goles_visitante: number | null;
     bloqueado: boolean;
   };
   puntos_obtenidos?: number;
+}
+export interface PrediccionResagada {
+  id: number;
+  prediccion_id: number;
+  nombre_usuario: string;
+  goles_local_asignado: number;
+  goles_visitante_asignado: number;
 }
