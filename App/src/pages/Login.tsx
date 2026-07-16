@@ -71,17 +71,19 @@ const handleRegister = async () => {
   value={areaId} 
   required
 >
-  {/* Esta es la opción "fantasma" que aparece arriba */}
-  <option value="" disabled selected>
+  <option value="" disabled>
     -- Selecciona tu área --
   </option>
   
-  {/* Aquí se cargan las áreas reales desde la BD */}
-  {areas.map((area) => (
-    <option key={area.id} value={area.id}>
-      {area.nombre}
-    </option>
-  ))}
+  {/* Filtramos el area.id !== 0 para excluir el SuperAdmin */}
+  {areas
+    .filter((area) => area.id !== 0) 
+    .map((area) => (
+      <option key={area.id} value={area.id}>
+        {area.nombre}
+      </option>
+    ))
+  }
 </select>
         <div className='btnBox'>
           <button>
