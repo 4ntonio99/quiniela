@@ -8,29 +8,44 @@ import './login/login.scss';
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+const [areaId, setAreaId] = useState(""); 
   const [showReglas, setShowReglas] = useState(false);
   const { login, user } = useAuth();
   const navigate = useNavigate();
+  const [areas, setAreas] = useState<Area[]>([]);
+
+  interface Area {
+  id: number;
+  nombre: string;
+}
 
   useEffect(() => {
+    fetchAreas();
     if (user) {
       navigate('/dashboard');
     }
   }, [user, navigate]);
+  const fetchAreas = async () => {
+    try {
+      const response = await api.get('/auth/areas');
+      setAreas(response.data);
+    } catch (error) {
+      console.error("Error al cargar áreas:", error);
+    }
+  };
 
-  const handleRegister = async () => {
+const handleRegister = async () => {
     try {
       await api.post('/auth/register', { 
         username: username, 
         password: password, 
-        is_admin: false 
-      }, {
-        headers: { 'Content-Type': 'application/json' }
+        isAdmin: false,
+        area_id: parseInt(areaId) // <--- Enviamos el área convertida a número
       });
       
       await login(username, password);
     } catch (error: any) {
-      alert(`Error: ${JSON.stringify(error.response?.data?.detail || "Error desconocido")}`);
+      alert(`Error: ${JSON.stringify(error.response?.data?.detail || "Error")}`);
     }
   };
 
@@ -51,6 +66,23 @@ export default function Login() {
         
         <input type="text" placeholder="Usuario" onChange={(e) => setUsername(e.target.value)} required/>
         <input type="password" placeholder="Contraseña" onChange={(e) => setPassword(e.target.value)} required/>
+<select 
+  onChange={(e) => setAreaId(e.target.value)} 
+  value={areaId} 
+  required
+>
+  {/* Esta es la opción "fantasma" que aparece arriba */}
+  <option value="" disabled selected>
+    -- Selecciona tu área --
+  </option>
+  
+  {/* Aquí se cargan las áreas reales desde la BD */}
+  {areas.map((area) => (
+    <option key={area.id} value={area.id}>
+      {area.nombre}
+    </option>
+  ))}
+</select>
         <div className='btnBox'>
           <button>
             Iniciar Sesión

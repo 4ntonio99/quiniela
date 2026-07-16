@@ -1,3 +1,4 @@
+from app.dependencies import get_area_id
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app import models, security, database
@@ -22,6 +23,7 @@ class RankingResponse(BaseModel):
     
     class Config:
         from_attributes = True
+        
 
 class QuinielaSolicitudResponse(BaseModel):
     id: int
@@ -31,6 +33,13 @@ class QuinielaSolicitudResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+# --- Funciones -- 
+# Asegúrate de usar el nombre exacto de la clase, por ejemplo:
+def aplicar_filtro_area(query, user: models.Usuario): # Cambia 'User' por 'Usuario' (o el nombre real)
+    if user.area_id == 0:
+        return query
+    return query.filter(models.Quiniela.area_id == user.area_id)
 
 # --- ENDPOINTS ---
 
@@ -45,10 +54,16 @@ def solicitar_gratis(current_user: User = Depends(get_current_user), db: Session
     if existe:
         raise HTTPException(status_code=400, detail="Ya tienes una quiniela.")
     
-    # 1. Crear la quiniela
-    nueva = models.Quiniela(user_id=current_user.id, is_approved=True, is_random=True, puntos=0)
+    # 1. Crear la quiniela asignando el area_id del usuario
+    nueva = models.Quiniela(
+        user_id=current_user.id, 
+        area_id=current_user.area_id, # <--- CORRECCIÓN AQUÍ
+        is_approved=True, 
+        is_random=True, 
+        puntos=0
+    )
     db.add(nueva)
-    db.flush() # Esto asigna el ID a 'nueva' antes de hacer commit
+    db.flush() 
     
     # 2. Generar las predicciones automáticamente
     partidos = db.query(models.Partido).all()
@@ -66,56 +81,85 @@ def solicitar_gratis(current_user: User = Depends(get_current_user), db: Session
     return {"message": "Quiniela gratis creada con predicciones automáticas"}
 
 @router.get("/admin/descargar-reporte")
-def descargar_reporte(db: Session = Depends(database.get_db)):
-    # 1. Obtener todas las predicciones. 
-    # El 'order_by' asegura que el reporte esté agrupado por quiniela_id.
-# %Y: año con 4 dígitos, %m: mes, %d: día, %H: hora (24h), %M: minutos
+def descargar_reporte(
+    db: Session = Depends(database.get_db), 
+    current_user: User = Depends(get_current_user) # Inyectamos el usuario completo
+):
+
+    # 1. Iniciamos la consulta base
+    query = db.query(models.Prediccion).join(models.Quiniela).join(models.Usuario)
+    
+    # 2. LÓGICA DE COMODÍN: 
+    # Solo filtramos si el area_id del admin es distinto de 0
+    if current_user.area_id != 0:
+        query = query.filter(models.Quiniela.area_id == current_user.area_id)
+    
+    # Obtenemos los datos (ya sea filtrados o completos si es admin área 0)
+    predicciones = query.order_by(models.Prediccion.quiniela_id).all()
+    
     timestamp = datetime.now().strftime("%Y%m%d-%H%M")
     filename = f"quiniela_{timestamp}.txt"
-    predicciones = db.query(models.Prediccion).order_by(models.Prediccion.quiniela_id).all()
     
-    # 2. Encabezado del reporte
+    # 3. Generación del reporte (se mantiene igual)
     lineas = ["Nombre usuario|ID Quiniela|Tipo|ID Partido|Local|Pred Local|Pred Visita|Visita|Goles Local Real|Goles Visita Real|Puntos"]
     
-    # 3. Recorrer y leer los datos que ya fueron procesados por el motor
     for p in predicciones:
-        # Extraer datos de la relación (Usuario, Quiniela, Partido)
         username = p.usuario.username if p.usuario else "N/A"
         quiniela_id = p.quiniela_id
         tipo = "Aleatoria" if p.quiniela.is_random else "Decisión"
-        
         partido = p.partido
         id_partido = partido.id if partido else "N/A"
         local_nombre = partido.equipo_local if partido else "N/A"
         visita_nombre = partido.equipo_visitante if partido else "N/A"
-        
-        # Leer goles reales y los puntos YA CALCULADOS por el motor
         goles_l_real = partido.goles_local if partido else 0
         goles_v_real = partido.goles_visitante if partido else 0
-        
-        # LECTURA DIRECTA DE LA BD (Puntos almacenados en la tabla predicciones)
         puntos_pred = p.puntos_obtenidos if hasattr(p, 'puntos_obtenidos') else 0
         
-        # 4. Construcción de la línea (sin cálculos ni if/else de reglas)
         linea = (f"{username}|{quiniela_id}|{tipo}|"
                  f"{id_partido}|{local_nombre}|{p.goles_local_pred}|"
                  f"{p.goles_visitante_pred}|{visita_nombre}|"
                  f"{goles_l_real}|{goles_v_real}|{puntos_pred}")
-        
         lineas.append(linea)
     
-    # 5. Retornar el archivo listo
     return PlainTextResponse(
         content="\n".join(lineas), 
         media_type="text/plain", 
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
+@router.get("/ranking", response_model=List[RankingResponse])
+def obtener_ranking(
+    db: Session = Depends(database.get_db),
+    area_id: int = Depends(get_area_id)
+):
+    # Definimos la consulta base
+    query = db.query(
+        models.Usuario.username,
+        models.Quiniela.puntos,
+        models.Quiniela.is_random,
+        models.Quiniela.id.label("quiniela_id")
+    ).join(models.Quiniela, models.Usuario.id == models.Quiniela.user_id)
+    
+    # Aplicamos filtro de estado
+    query = query.filter(models.Usuario.is_admin == False, models.Quiniela.is_approved == True)
+    
+    # FILTRO ESTRICTO POR ÁREA
+    # Si 'area_id' es un número, obligamos a que solo traiga esa área
+    if area_id is not None:
+        query = query.filter(models.Quiniela.area_id == area_id)
+    else:
+        # Opcional: si eres admin, puedes ver todo, 
+        # pero si no quieres que pase nada si el area_id llega mal, puedes forzar error
+        pass
+        
+    return query.order_by(models.Quiniela.puntos.desc()).all()
+
 @router.post("/solicitar")
 def solicitar_quiniela(is_random: bool, db: Session = Depends(database.get_db), 
                        current_user: User = Depends(get_current_user)):
     nueva_quiniela = models.Quiniela(
         user_id=current_user.id, 
+        area_id=current_user.area_id, # <--- CORRECCIÓN AQUÍ
         is_random=is_random, 
         is_approved=False,
         puntos=0
@@ -150,23 +194,31 @@ def obtener_pendientes(db: Session = Depends(database.get_db),
     ]
 
 @router.get("/admin/todas-las-quinielas")
-def obtener_todas_las_quinielas(db: Session = Depends(database.get_db), 
-                                 current_user: User = Depends(get_current_user)):
+def obtener_todas_las_quinielas(
+    db: Session = Depends(database.get_db), 
+    current_user: User = Depends(get_current_user)
+):
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="No autorizado")
     
-    # Hacemos un join entre Quiniela y Usuario
-    quinielas = db.query(models.Quiniela, models.Usuario.username).join(
+    # 1. Iniciamos la consulta uniendo con Usuario
+    query = db.query(models.Quiniela, models.Usuario.username).join(
         models.Usuario, models.Quiniela.user_id == models.Usuario.id
-    ).all()
+    )
     
-    # Formateamos la respuesta para incluir el username
+    # 2. Aplicamos filtro de área (comodín 0)
+    if current_user.area_id != 0:
+        query = query.filter(models.Quiniela.area_id == current_user.area_id)
+        
+    resultados = query.all()
+    
+    # 3. Formateamos la respuesta
     resultado = []
-    for q, username in quinielas:
+    for q, username in resultados:
         resultado.append({
             "id": q.id,
             "user_id": q.user_id,
-            "user_name": username,
+            "user_name": username, # Aquí ya no debería ser N/A
             "puntos": q.puntos,
             "is_random": q.is_random,
             "is_approved": q.is_approved
@@ -236,20 +288,8 @@ def rechazar_quiniela(quiniela_id: int, db: Session = Depends(database.get_db),
         db.commit()
     return {"message": "Quiniela rechazada y eliminada"}
 
-@router.get("/ranking", response_model=List[RankingResponse])
-def obtener_ranking(db: Session = Depends(database.get_db)):
-    ranking = db.query(
-        models.Usuario.username,
-        models.Quiniela.puntos,
-        models.Quiniela.is_random,
-        models.Quiniela.id.label("quiniela_id")
-    ).join(models.Quiniela, models.Usuario.id == models.Quiniela.user_id)\
-     .filter(models.Usuario.is_admin == False, models.Quiniela.is_approved == True)\
-     .order_by(models.Quiniela.puntos.desc())\
-     .all()
-    return ranking
 
-    # Buscamos la predicción por partido_id y usuario_id
+
 @router.post("/admin/llenar-aleatorio/{quiniela_id}/{partido_id}")
 def llenar_prediccion_aleatoria(
     quiniela_id: int, 
@@ -295,9 +335,12 @@ def llenar_prediccion_aleatoria(
     return {"message": "Predicción actualizada y registrada en resagadas"}
 
 @router.get("/rezagadas")
-def get_predicciones_resagadas(db: Session = Depends(database.get_db)): # Usa database.get_db
-    # Usa models.PrediccionResagada, models.Prediccion y models.Usuario
-    resultados = db.query(
+def get_predicciones_resagadas(
+    db: Session = Depends(database.get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # 1. Iniciamos la consulta base
+    query = db.query(
         models.PrediccionResagada.id,
         models.PrediccionResagada.prediccion_id,
         models.Usuario.username.label("nombre_usuario"), 
@@ -305,7 +348,13 @@ def get_predicciones_resagadas(db: Session = Depends(database.get_db)): # Usa da
         models.PrediccionResagada.goles_visitante_asignado
     ).join(models.Prediccion, models.PrediccionResagada.prediccion_id == models.Prediccion.id)\
      .join(models.Usuario, models.Prediccion.usuario_id == models.Usuario.id)\
-     .all()
+     .join(models.Quiniela, models.Prediccion.quiniela_id == models.Quiniela.id) # Unimos con Quiniela para acceder al area_id
+
+    # 2. Aplicamos el filtro si no es super admin (area 0)
+    if current_user.area_id != 0:
+        query = query.filter(models.Quiniela.area_id == current_user.area_id)
+        
+    resultados = query.all()
 
     return [
         {

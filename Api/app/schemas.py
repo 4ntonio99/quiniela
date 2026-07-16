@@ -6,6 +6,8 @@ class UsuarioCreate(BaseModel):
     username: str
     password: str
     isAdmin: bool = False  # Ahora acepta un booleano directamente
+    area_id: int
+
 
 class UsuarioResponse(BaseModel):
     id: int
@@ -65,3 +67,19 @@ class PrediccionResponse(PrediccionCreate):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+# En app/schemas.py
+
+class AreaBase(BaseModel):
+    nombre: str
+
+class AreaResponse(AreaBase):
+    id: int
+
+    class Config:
+        from_attributes = True # O 'orm_mode = True' si usas una versión antigua de Pydantic
+
+# En app/schemas.py
+
+class AreaCreate(BaseModel):
+    nombre: str

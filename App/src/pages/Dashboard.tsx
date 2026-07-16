@@ -44,17 +44,32 @@ export default function Dashboard() {
     } catch (error: any) { alert(error.response?.data?.detail || "Error al cargar partidos."); }
   };
 
-  const descargarReporte = async () => {
+const descargarReporte = async () => {
   try {
     const response = await api.get('/quinielas/admin/descargar-reporte', { responseType: 'blob' });
+    
+    // 1. Intentar extraer el nombre del archivo del header
+    const disposition = response.headers['content-disposition'];
+    let fileName = 'reporte_quiniela.txt'; // nombre por defecto
+    
+    if (disposition && disposition.indexOf('filename=') !== -1) {
+        fileName = disposition.split('filename=')[1].replace(/['"]/g, '');
+    }
+
+    // 2. Crear el objeto
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'reporte_quinielas.txt');
+    
+    // 3. Asignar el nombre extraído
+    link.setAttribute('download', fileName); 
+    
     document.body.appendChild(link);
     link.click();
     link.remove();
+    window.URL.revokeObjectURL(url); // Buena práctica para limpiar memoria
   } catch (error) {
+    console.error(error);
     alert("Error al descargar el reporte");
   }
 };
